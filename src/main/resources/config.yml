@@ -1,6 +1,31 @@
----
-debug: false
-trigger_item: POISONOUS_POTATO
-success_sound: ENTITY_EXPERIENCE_ORB_PICKUP
+# Item settings
+trigger_item: CLOCK         # Used for age lock/unlock
+silence_item: BELL          # Used for silencing/unsilencing
+
+# Age lock (anti-aging) messages, particles, and sounds
+success_message: "&aBaby is now locked!"
 success_particle: VILLAGER_HAPPY
-failure_sound: ENTITY_PLAYER_BURP
+lock_sound: ENTITY_EXPERIENCE_ORB_PICKUP
+unlock_message: "&eBaby is now unlocked!"
+unlock_particle: VILLAGER_HAPPY
+unlock_sound: ENTITY_EXPERIENCE_ORB_PICKUP
+permission_message: "&cYou can't do that here!"
+permission_sound: BLOCK_NOTE_BLOCK_BASS
+sound_volume: 0.2
+sound_pitch: 1.0
+
+# Silence messages, particles, and sounds
+silence_message: "&7Mob silenced!"
+silence_particle: CLOUD
+silence_sound: BLOCK_NOTE_BLOCK_PLING
+unsilence_message: "&aMob unsilenced!"
+unsilence_particle: NOTE
+unsilence_sound: ENTITY_EXPERIENCE_ORB_PICKUP
+silence_permission_message: "&cYou can't silence this mob!"
+silence_permission_sound: BLOCK_NOTE_BLOCK_BASS
+silence_sound_volume: 0.2
+silence_sound_pitch: 1.0
+# Command to run for each player with /runcommandall
+runcommandall_command: "mycommand $player"
+# Debug
+debug: false
