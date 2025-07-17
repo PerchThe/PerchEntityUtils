@@ -19,7 +19,7 @@ repositories {
 
 dependencies {
     compileOnly 'io.papermc.paper:paper-api:1.19.3-R0.1-SNAPSHOT'
-    compileOnly files('libs/GP.jar')
+    compileOnly files('libs/GriefPrevention.jar')
 }
 
 def targetJavaVersion = 21 // <-- changed from 17 to 21

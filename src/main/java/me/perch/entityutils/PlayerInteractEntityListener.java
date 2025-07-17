@@ -166,6 +166,7 @@ public class PlayerInteractEntityListener implements Listener {
                 livingEntity.setSilent(true);
                 sendFeedback(player, config, "silence_message", "silence_particle", "silence_sound", loc, volume, pitch);
             }
+            event.setCancelled(true); // Prevents default interaction (e.g., villager trade menu) when using bell
             return;
         }
     }
