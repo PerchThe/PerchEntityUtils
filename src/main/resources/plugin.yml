@@ -3,6 +3,7 @@ version: '1.0.0'
 main: me.perch.entityutils.Main
 api-version: 1.20
 authors: [ KayaLambrex ]
+softdepend: [WorldGuard]
 
 commands:
   runcommandall:
@@ -10,8 +11,14 @@ commands:
     usage: /runcommandall
     permission: perchentityutils.runcommandall
     permission-message: You do not have permission to use this command.
+  rds:
+    description: Reverse Dropper setup commands
+    usage: /rds setstart [regionId]
+    permission: perch.rds.admin
 
 permissions:
   perchentityutils.runcommandall:
     description: Allows use of /runcommandall
+    default: op
+  perch.rds.admin:
     default: op
