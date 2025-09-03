@@ -32,9 +32,6 @@ public class PlayerInteractEntityListener implements Listener {
     public PlayerInteractEntityListener(Main plugin) {
         this.plugin = plugin;
     }
-
-    // Cancel right-clicks with a clock or bell in the air to prevent double event firing,
-    // but allow placing bells and clocks on blocks.
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
@@ -69,7 +66,6 @@ public class PlayerInteractEntityListener implements Listener {
         Material triggerItem = Material.valueOf(config.getString("trigger_item", "CLOCK"));
         Material silenceItem = Material.valueOf(config.getString("silence_item", "BELL"));
 
-        // AGE LOCK FEATURE
         if (itemInHand.getType().equals(triggerItem)) {
             if (!(event.getRightClicked() instanceof Breedable breedable)) return;
             if (breedable.isAdult()) return;
@@ -77,7 +73,6 @@ public class PlayerInteractEntityListener implements Listener {
             Location loc = event.getRightClicked().getLocation();
             boolean denied = false;
 
-            // 1. GriefPrevention claim check (only if inside a claim)
             if (GriefPrevention.instance != null) {
                 Claim claim = GriefPrevention.instance.dataStore.getClaimAt(loc, false, null);
                 if (claim != null) {
@@ -88,7 +83,6 @@ public class PlayerInteractEntityListener implements Listener {
                 }
             }
 
-            // 2. Tameable ownership check (only if the entity is tameable and tamed)
             if (!denied && event.getRightClicked() instanceof Tameable tameable && tameable.isTamed()) {
                 AnimalTamer owner = tameable.getOwner();
                 if (owner == null || !owner.getUniqueId().equals(player.getUniqueId())) {
@@ -102,7 +96,6 @@ public class PlayerInteractEntityListener implements Listener {
                 return;
             }
 
-            // Debug logging
             if (config.getBoolean("debug")) {
                 plugin.getLogger().info(String.format("Player interacted with entity %s, lock: %s, is baby: %s", breedable.getName(), breedable.getAgeLock(), !breedable.isAdult()));
             }
@@ -111,25 +104,21 @@ public class PlayerInteractEntityListener implements Listener {
             float pitch = (float) config.getDouble("sound_pitch", 1.0f);
 
             if (breedable.getAgeLock()) {
-                // Already locked, unlock it
                 breedable.setAgeLock(false);
                 sendFeedback(player, config, "unlock_message", "unlock_particle", "unlock_sound", loc, volume, pitch);
             } else {
-                // Not locked, so lock it
                 breedable.setAgeLock(true);
                 sendFeedback(player, config, "success_message", "success_particle", "lock_sound", loc, volume, pitch);
             }
             return;
         }
 
-        // SILENCE FEATURE
         if (itemInHand.getType().equals(silenceItem)) {
             if (!(event.getRightClicked() instanceof LivingEntity livingEntity)) return;
 
             Location loc = livingEntity.getLocation();
             boolean denied = false;
 
-            // 1. GriefPrevention claim check (only if inside a claim)
             if (GriefPrevention.instance != null) {
                 Claim claim = GriefPrevention.instance.dataStore.getClaimAt(loc, false, null);
                 if (claim != null) {
@@ -140,7 +129,6 @@ public class PlayerInteractEntityListener implements Listener {
                 }
             }
 
-            // 2. Tameable ownership check (only if the entity is tameable and tamed)
             if (!denied && livingEntity instanceof Tameable tameable && tameable.isTamed()) {
                 AnimalTamer owner = tameable.getOwner();
                 if (owner == null || !owner.getUniqueId().equals(player.getUniqueId())) {
@@ -158,15 +146,13 @@ public class PlayerInteractEntityListener implements Listener {
             float pitch = (float) config.getDouble("silence_sound_pitch", 1.0f);
 
             if (livingEntity.isSilent()) {
-                // Already silent, un-silence it
                 livingEntity.setSilent(false);
                 sendFeedback(player, config, "unsilence_message", "unsilence_particle", "unsilence_sound", loc, volume, pitch);
             } else {
-                // Not silent, so silence it
                 livingEntity.setSilent(true);
                 sendFeedback(player, config, "silence_message", "silence_particle", "silence_sound", loc, volume, pitch);
             }
-            event.setCancelled(true); // Prevents default interaction (e.g., villager trade menu) when using bell
+            event.setCancelled(true);
             return;
         }
     }
