@@ -8,6 +8,8 @@ import org.bukkit.entity.AnimalTamer;
 import org.bukkit.entity.Tameable;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -32,6 +34,7 @@ public class PlayerInteractEntityListener implements Listener {
     public PlayerInteractEntityListener(Main plugin) {
         this.plugin = plugin;
     }
+
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
@@ -40,8 +43,8 @@ public class PlayerInteractEntityListener implements Listener {
         FileConfiguration config = plugin.getConfig();
         Material triggerItem = Material.valueOf(config.getString("trigger_item", "CLOCK"));
         Material silenceItem = Material.valueOf(config.getString("silence_item", "BELL"));
-        // Only cancel if right-clicking air, not a block
-        if ((mainHandType == triggerItem || mainHandType == silenceItem) && event.getAction() == Action.RIGHT_CLICK_AIR) {
+        Material statueItem = Material.valueOf(config.getString("statue_item", "ARMOR_STAND"));
+        if ((mainHandType == triggerItem || mainHandType == silenceItem || mainHandType == statueItem) && event.getAction() == Action.RIGHT_CLICK_AIR) {
             event.setCancelled(true);
         }
     }
@@ -55,9 +58,7 @@ public class PlayerInteractEntityListener implements Listener {
         long now = System.currentTimeMillis();
         if (lastInteract.containsKey(uuid)) {
             long last = lastInteract.get(uuid);
-            if (now - last < 250) {
-                return;
-            }
+            if (now - last < 250) return;
         }
         lastInteract.put(uuid, now);
 
@@ -65,6 +66,7 @@ public class PlayerInteractEntityListener implements Listener {
         ItemStack itemInHand = player.getInventory().getItemInMainHand();
         Material triggerItem = Material.valueOf(config.getString("trigger_item", "CLOCK"));
         Material silenceItem = Material.valueOf(config.getString("silence_item", "BELL"));
+        Material statueItem = Material.valueOf(config.getString("statue_item", "ARMOR_STAND"));
 
         if (itemInHand.getType().equals(triggerItem)) {
             if (!(event.getRightClicked() instanceof Breedable breedable)) return;
@@ -77,21 +79,17 @@ public class PlayerInteractEntityListener implements Listener {
                 Claim claim = GriefPrevention.instance.dataStore.getClaimAt(loc, false, null);
                 if (claim != null) {
                     String denyReason = claim.allowBuild(player, loc.getBlock().getType());
-                    if (denyReason != null) {
-                        denied = true;
-                    }
+                    if (denyReason != null) denied = true;
                 }
             }
 
             if (!denied && event.getRightClicked() instanceof Tameable tameable && tameable.isTamed()) {
                 AnimalTamer owner = tameable.getOwner();
-                if (owner == null || !owner.getUniqueId().equals(player.getUniqueId())) {
-                    denied = true;
-                }
+                if (owner == null || !owner.getUniqueId().equals(player.getUniqueId())) denied = true;
             }
 
             if (denied) {
-                sendDenyFeedback(player, config, "permission_message", "permission_sound");
+                sendDenyFeedback(player, config, "permission_message", "permission_sound", (float) config.getDouble("sound_volume", 0.2f), (float) config.getDouble("sound_pitch", 1.0f));
                 event.setCancelled(true);
                 return;
             }
@@ -123,21 +121,17 @@ public class PlayerInteractEntityListener implements Listener {
                 Claim claim = GriefPrevention.instance.dataStore.getClaimAt(loc, false, null);
                 if (claim != null) {
                     String denyReason = claim.allowBuild(player, loc.getBlock().getType());
-                    if (denyReason != null) {
-                        denied = true;
-                    }
+                    if (denyReason != null) denied = true;
                 }
             }
 
             if (!denied && livingEntity instanceof Tameable tameable && tameable.isTamed()) {
                 AnimalTamer owner = tameable.getOwner();
-                if (owner == null || !owner.getUniqueId().equals(player.getUniqueId())) {
-                    denied = true;
-                }
+                if (owner == null || !owner.getUniqueId().equals(player.getUniqueId())) denied = true;
             }
 
             if (denied) {
-                sendDenyFeedback(player, config, "silence_permission_message", "silence_permission_sound");
+                sendDenyFeedback(player, config, "silence_permission_message", "silence_permission_sound", (float) config.getDouble("silence_sound_volume", 0.2f), (float) config.getDouble("silence_sound_pitch", 1.0f));
                 event.setCancelled(true);
                 return;
             }
@@ -155,13 +149,66 @@ public class PlayerInteractEntityListener implements Listener {
             event.setCancelled(true);
             return;
         }
+
+        if (itemInHand.getType().equals(statueItem)) {
+            if (!(event.getRightClicked() instanceof LivingEntity living)) return;
+            if (living instanceof Player || living.getType() == EntityType.ARMOR_STAND) return;
+
+            if (living instanceof Villager && !player.isSneaking()) {
+                sendDenyFeedback(player, config, "villager_statue_sneak_message", "statue_permission_sound", (float) config.getDouble("statue_sound_volume", 0.2f), (float) config.getDouble("statue_sound_pitch", 1.0f));
+                event.setCancelled(true);
+                return;
+            }
+
+            Location loc = living.getLocation();
+            boolean denied = false;
+
+            if (GriefPrevention.instance != null) {
+                Claim claim = GriefPrevention.instance.dataStore.getClaimAt(loc, false, null);
+                if (claim != null) {
+                    String denyReason = claim.allowBuild(player, loc.getBlock().getType());
+                    if (denyReason != null) denied = true;
+                }
+            }
+
+            if (!denied && living instanceof Tameable tameable && tameable.isTamed()) {
+                AnimalTamer owner = tameable.getOwner();
+                if (owner == null || !owner.getUniqueId().equals(player.getUniqueId())) denied = true;
+            }
+
+            if (denied) {
+                sendDenyFeedback(player, config, "statue_permission_message", "statue_permission_sound", (float) config.getDouble("statue_sound_volume", 0.2f), (float) config.getDouble("statue_sound_pitch", 1.0f));
+                event.setCancelled(true);
+                return;
+            }
+
+            float volume = (float) config.getDouble("statue_sound_volume", 0.2f);
+            float pitch = (float) config.getDouble("statue_sound_pitch", 1.0f);
+
+            boolean ai;
+            try {
+                ai = living.hasAI();
+            } catch (Throwable t) {
+                ai = true;
+            }
+
+            if (ai) {
+                living.setAI(false);
+                try { living.setGravity(false); } catch (Throwable ignored) {}
+                sendFeedback(player, config, "statue_message", "statue_particle", "statue_sound", loc, volume, pitch);
+            } else {
+                living.setAI(true);
+                try { living.setGravity(true); } catch (Throwable ignored) {}
+                sendFeedback(player, config, "unstatue_message", "unstatue_particle", "unstatue_sound", loc, volume, pitch);
+            }
+            event.setCancelled(true);
+        }
     }
 
     private void sendFeedback(Player player, FileConfiguration config, String messageKey, String particleKey, String soundKey, Location loc, float volume, float pitch) {
         String message = config.getString(messageKey, "");
         String particleName = config.getString(particleKey, "VILLAGER_HAPPY");
         String soundName = config.getString(soundKey, "ENTITY_EXPERIENCE_ORB_PICKUP");
-
         if (!message.isEmpty()) {
             player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(ChatColor.translateAlternateColorCodes('&', message)));
         }
@@ -175,16 +222,13 @@ public class PlayerInteractEntityListener implements Listener {
         } catch (Exception ignored) {}
     }
 
-    private void sendDenyFeedback(Player player, FileConfiguration config, String messageKey, String soundKey) {
+    private void sendDenyFeedback(Player player, FileConfiguration config, String messageKey, String soundKey, float volume, float pitch) {
         String message = config.getString(messageKey, "You don't have permission!");
         String soundName = config.getString(soundKey, "BLOCK_NOTE_BLOCK_BASS");
-        float denyVolume = (float) config.getDouble("sound_volume", 0.2f);
-        float denyPitch = (float) config.getDouble("sound_pitch", 1.0f);
-
         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(ChatColor.translateAlternateColorCodes('&', message)));
         try {
             Sound sound = Sound.valueOf(soundName);
-            player.playSound(player.getLocation(), sound, denyVolume, denyPitch);
+            player.playSound(player.getLocation(), sound, volume, pitch);
         } catch (Exception ignored) {}
     }
 }
