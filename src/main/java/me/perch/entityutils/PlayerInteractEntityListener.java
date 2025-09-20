@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Villager;
+import org.bukkit.entity.Monster;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -94,10 +95,6 @@ public class PlayerInteractEntityListener implements Listener {
                 return;
             }
 
-            if (config.getBoolean("debug")) {
-                plugin.getLogger().info(String.format("Player interacted with entity %s, lock: %s, is baby: %s", breedable.getName(), breedable.getAgeLock(), !breedable.isAdult()));
-            }
-
             float volume = (float) config.getDouble("sound_volume", 0.2f);
             float pitch = (float) config.getDouble("sound_pitch", 1.0f);
 
@@ -154,8 +151,19 @@ public class PlayerInteractEntityListener implements Listener {
             if (!(event.getRightClicked() instanceof LivingEntity living)) return;
             if (living instanceof Player || living.getType() == EntityType.ARMOR_STAND) return;
 
-            if (living instanceof Villager && !player.isSneaking()) {
-                sendDenyFeedback(player, config, "villager_statue_sneak_message", "statue_permission_sound", (float) config.getDouble("statue_sound_volume", 0.2f), (float) config.getDouble("statue_sound_pitch", 1.0f));
+            if (living instanceof Monster
+                    || living.getType() == EntityType.SLIME
+                    || living.getType() == EntityType.MAGMA_CUBE
+                    || living.getType() == EntityType.WARDEN
+                    || living.getType() == EntityType.WITHER
+                    || living.getType() == EntityType.ENDER_DRAGON) {
+                sendDenyFeedback(player, config, "statue_hostile_message", "statue_permission_sound", (float) config.getDouble("statue_sound_volume", 0.2f), (float) config.getDouble("statue_sound_pitch", 1.0f));
+                event.setCancelled(true);
+                return;
+            }
+
+            if (living instanceof Villager) {
+                sendDenyFeedback(player, config, "statue_villager_message", "statue_permission_sound", (float) config.getDouble("statue_sound_volume", 0.2f), (float) config.getDouble("statue_sound_pitch", 1.0f));
                 event.setCancelled(true);
                 return;
             }
