@@ -1,28 +1,31 @@
 package me.perch.entityutils;
 
-import org.bukkit.*;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.Breedable;
 import org.bukkit.entity.AnimalTamer;
-import org.bukkit.entity.Tameable;
-import org.bukkit.entity.Player;
-import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Breedable;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Villager;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Tameable;
+import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
-import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import me.ryanhamshire.GriefPrevention.Claim;
+import me.ryanhamshire.GriefPrevention.GriefPrevention;
 
 import java.util.HashMap;
 import java.util.UUID;
@@ -40,12 +43,15 @@ public class PlayerInteractEntityListener implements Listener {
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         if (event.getHand() != EquipmentSlot.HAND) return;
-        Material mainHandType = event.getPlayer().getInventory().getItemInMainHand().getType();
+
         FileConfiguration config = plugin.getConfig();
+        Material mainHandType = event.getPlayer().getInventory().getItemInMainHand().getType();
         Material triggerItem = Material.valueOf(config.getString("trigger_item", "CLOCK"));
         Material silenceItem = Material.valueOf(config.getString("silence_item", "BELL"));
         Material statueItem = Material.valueOf(config.getString("statue_item", "ARMOR_STAND"));
-        if ((mainHandType == triggerItem || mainHandType == silenceItem || mainHandType == statueItem) && event.getAction() == Action.RIGHT_CLICK_AIR) {
+
+        if ((mainHandType == triggerItem || mainHandType == silenceItem || mainHandType == statueItem)
+                && event.getAction() == Action.RIGHT_CLICK_AIR) {
             event.setCancelled(true);
         }
     }
@@ -65,10 +71,12 @@ public class PlayerInteractEntityListener implements Listener {
 
         FileConfiguration config = plugin.getConfig();
         ItemStack itemInHand = player.getInventory().getItemInMainHand();
+
         Material triggerItem = Material.valueOf(config.getString("trigger_item", "CLOCK"));
         Material silenceItem = Material.valueOf(config.getString("silence_item", "BELL"));
         Material statueItem = Material.valueOf(config.getString("statue_item", "ARMOR_STAND"));
 
+        // AGE LOCK / UNLOCK
         if (itemInHand.getType().equals(triggerItem)) {
             if (!(event.getRightClicked() instanceof Breedable breedable)) return;
             if (breedable.isAdult()) return;
@@ -90,7 +98,9 @@ public class PlayerInteractEntityListener implements Listener {
             }
 
             if (denied) {
-                sendDenyFeedback(player, config, "permission_message", "permission_sound", (float) config.getDouble("sound_volume", 0.2f), (float) config.getDouble("sound_pitch", 1.0f));
+                sendDenyFeedback(player, config, "permission_message", "permission_sound",
+                        (float) config.getDouble("sound_volume", 0.2f),
+                        (float) config.getDouble("sound_pitch", 1.0f));
                 event.setCancelled(true);
                 return;
             }
@@ -108,6 +118,7 @@ public class PlayerInteractEntityListener implements Listener {
             return;
         }
 
+        // SILENCE / UNSILENCE
         if (itemInHand.getType().equals(silenceItem)) {
             if (!(event.getRightClicked() instanceof LivingEntity livingEntity)) return;
 
@@ -128,7 +139,9 @@ public class PlayerInteractEntityListener implements Listener {
             }
 
             if (denied) {
-                sendDenyFeedback(player, config, "silence_permission_message", "silence_permission_sound", (float) config.getDouble("silence_sound_volume", 0.2f), (float) config.getDouble("silence_sound_pitch", 1.0f));
+                sendDenyFeedback(player, config, "silence_permission_message", "silence_permission_sound",
+                        (float) config.getDouble("silence_sound_volume", 0.2f),
+                        (float) config.getDouble("silence_sound_pitch", 1.0f));
                 event.setCancelled(true);
                 return;
             }
@@ -147,23 +160,31 @@ public class PlayerInteractEntityListener implements Listener {
             return;
         }
 
+        // STATUE: FREEZE / UNFREEZE, OR SNEAK-ROTATE
         if (itemInHand.getType().equals(statueItem)) {
             if (!(event.getRightClicked() instanceof LivingEntity living)) return;
             if (living instanceof Player || living.getType() == EntityType.ARMOR_STAND) return;
 
+            // Disallow hostiles/bosses
             if (living instanceof Monster
                     || living.getType() == EntityType.SLIME
                     || living.getType() == EntityType.MAGMA_CUBE
                     || living.getType() == EntityType.WARDEN
                     || living.getType() == EntityType.WITHER
                     || living.getType() == EntityType.ENDER_DRAGON) {
-                sendDenyFeedback(player, config, "statue_hostile_message", "statue_permission_sound", (float) config.getDouble("statue_sound_volume", 0.2f), (float) config.getDouble("statue_sound_pitch", 1.0f));
+                sendDenyFeedback(player, config, "statue_hostile_message", "statue_permission_sound",
+                        (float) config.getDouble("statue_sound_volume", 0.2f),
+                        (float) config.getDouble("statue_sound_pitch", 1.0f));
                 event.setCancelled(true);
                 return;
             }
 
+            // Disallow villagers (use your separate feature instead)
             if (living instanceof Villager) {
-                sendDenyFeedback(player, config, "statue_villager_message", "statue_permission_sound", (float) config.getDouble("statue_sound_volume", 0.2f), (float) config.getDouble("statue_sound_pitch", 1.0f));
+                String msgKey = player.isSneaking() ? "villager_statue_sneak_message" : "statue_villager_message";
+                sendDenyFeedback(player, config, msgKey, "statue_permission_sound",
+                        (float) config.getDouble("statue_sound_volume", 0.2f),
+                        (float) config.getDouble("statue_sound_pitch", 1.0f));
                 event.setCancelled(true);
                 return;
             }
@@ -185,7 +206,9 @@ public class PlayerInteractEntityListener implements Listener {
             }
 
             if (denied) {
-                sendDenyFeedback(player, config, "statue_permission_message", "statue_permission_sound", (float) config.getDouble("statue_sound_volume", 0.2f), (float) config.getDouble("statue_sound_pitch", 1.0f));
+                sendDenyFeedback(player, config, "statue_permission_message", "statue_permission_sound",
+                        (float) config.getDouble("statue_sound_volume", 0.2f),
+                        (float) config.getDouble("statue_sound_pitch", 1.0f));
                 event.setCancelled(true);
                 return;
             }
@@ -193,6 +216,32 @@ public class PlayerInteractEntityListener implements Listener {
             float volume = (float) config.getDouble("statue_sound_volume", 0.2f);
             float pitch = (float) config.getDouble("statue_sound_pitch", 1.0f);
 
+            // SNEAK = ROTATE
+            if (player.isSneaking()) {
+                double inc = config.getDouble("statue_rotate_increment_degrees", 22.5d);
+                boolean onlyWhenFrozen = config.getBoolean("statue_rotate_only_when_frozen", false);
+
+                boolean ai;
+                try {
+                    ai = living.hasAI();
+                } catch (Throwable t) {
+                    ai = true;
+                }
+
+                if (!onlyWhenFrozen || !ai) {
+                    Location l = living.getLocation();
+                    float newYaw = (float) ((l.getYaw() + inc) % 360.0);
+                    l.setYaw(newYaw);
+                    living.teleport(l);
+                    sendFeedback(player, config, "statue_rotate_message", "statue_rotate_particle", "statue_rotate_sound", l, volume, pitch);
+                } else {
+                    sendDenyFeedback(player, config, "statue_rotate_need_freeze_message", "statue_permission_sound", volume, pitch);
+                }
+                event.setCancelled(true);
+                return;
+            }
+
+            // NORMAL CLICK = TOGGLE FREEZE
             boolean ai;
             try {
                 ai = living.hasAI();
