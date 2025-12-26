@@ -76,25 +76,40 @@ public class PlayerInteractEntityListener implements Listener {
         Material silenceItem = Material.valueOf(config.getString("silence_item", "BELL"));
         Material statueItem = Material.valueOf(config.getString("statue_item", "ARMOR_STAND"));
 
+        // ---------------------------------------------------------------------
         // AGE LOCK / UNLOCK
+        // ---------------------------------------------------------------------
         if (itemInHand.getType().equals(triggerItem)) {
             if (!(event.getRightClicked() instanceof Breedable breedable)) return;
             if (breedable.isAdult()) return;
 
             Location loc = event.getRightClicked().getLocation();
             boolean denied = false;
+            boolean isClaimOwner = false;
 
             if (GriefPrevention.instance != null) {
                 Claim claim = GriefPrevention.instance.dataStore.getClaimAt(loc, false, null);
                 if (claim != null) {
-                    String denyReason = claim.allowBuild(player, loc.getBlock().getType());
-                    if (denyReason != null) denied = true;
+                    // Check container trust for interactions
+                    String denyReason = claim.allowBuild(player, itemInHand.getType());
+                    if (denyReason != null) {
+                        denyReason = claim.allowContainers(player);
+                    }
+                    if (denyReason != null) {
+                        denied = true;
+                    } else if (claim.ownerID != null && player.getUniqueId().equals(claim.ownerID)) {
+                        isClaimOwner = true;
+                    }
+
                 }
             }
 
             if (!denied && event.getRightClicked() instanceof Tameable tameable && tameable.isTamed()) {
                 AnimalTamer owner = tameable.getOwner();
-                if (owner == null || !owner.getUniqueId().equals(player.getUniqueId())) denied = true;
+                boolean isPetOwner = (owner != null && owner.getUniqueId().equals(player.getUniqueId()));
+
+                // You must be Pet Owner OR Claim Owner
+                if (!isPetOwner && !isClaimOwner) denied = true;
             }
 
             if (denied) {
@@ -118,24 +133,35 @@ public class PlayerInteractEntityListener implements Listener {
             return;
         }
 
+        // ---------------------------------------------------------------------
         // SILENCE / UNSILENCE
+        // ---------------------------------------------------------------------
         if (itemInHand.getType().equals(silenceItem)) {
             if (!(event.getRightClicked() instanceof LivingEntity livingEntity)) return;
 
             Location loc = livingEntity.getLocation();
             boolean denied = false;
+            boolean isClaimOwner = false;
 
             if (GriefPrevention.instance != null) {
                 Claim claim = GriefPrevention.instance.dataStore.getClaimAt(loc, false, null);
                 if (claim != null) {
-                    String denyReason = claim.allowBuild(player, loc.getBlock().getType());
-                    if (denyReason != null) denied = true;
+                    String denyReason = claim.allowContainers(player);
+                    if (denyReason != null) {
+                        denied = true;
+                    } else {
+                        if (player.getUniqueId().equals(claim.ownerID)) {
+                            isClaimOwner = true;
+                        }
+                    }
                 }
             }
 
             if (!denied && livingEntity instanceof Tameable tameable && tameable.isTamed()) {
                 AnimalTamer owner = tameable.getOwner();
-                if (owner == null || !owner.getUniqueId().equals(player.getUniqueId())) denied = true;
+                boolean isPetOwner = (owner != null && owner.getUniqueId().equals(player.getUniqueId()));
+
+                if (!isPetOwner && !isClaimOwner) denied = true;
             }
 
             if (denied) {
@@ -160,26 +186,14 @@ public class PlayerInteractEntityListener implements Listener {
             return;
         }
 
+        // ---------------------------------------------------------------------
         // STATUE: FREEZE / UNFREEZE, OR SNEAK-ROTATE
+        // ---------------------------------------------------------------------
         if (itemInHand.getType().equals(statueItem)) {
             if (!(event.getRightClicked() instanceof LivingEntity living)) return;
             if (living instanceof Player || living.getType() == EntityType.ARMOR_STAND) return;
 
-            // Disallow hostiles/bosses
-            if (living instanceof Monster
-                    || living.getType() == EntityType.SLIME
-                    || living.getType() == EntityType.MAGMA_CUBE
-                    || living.getType() == EntityType.WARDEN
-                    || living.getType() == EntityType.WITHER
-                    || living.getType() == EntityType.ENDER_DRAGON) {
-                sendDenyFeedback(player, config, "statue_hostile_message", "statue_permission_sound",
-                        (float) config.getDouble("statue_sound_volume", 0.2f),
-                        (float) config.getDouble("statue_sound_pitch", 1.0f));
-                event.setCancelled(true);
-                return;
-            }
-
-            // Disallow villagers (use your separate feature instead)
+            // Villagers remain disallowed (use your separate feature)
             if (living instanceof Villager) {
                 String msgKey = player.isSneaking() ? "villager_statue_sneak_message" : "statue_villager_message";
                 sendDenyFeedback(player, config, msgKey, "statue_permission_sound",
@@ -189,20 +203,39 @@ public class PlayerInteractEntityListener implements Listener {
                 return;
             }
 
+            // NEW: Hostiles & bosses require Name-Tag first
+            if (isHostileOrBoss(living) && !isNameTagged(living)) {
+                // Default text matches your request (&c color)
+                sendDenyFeedback(player, config, "statue_need_nametag_message", "statue_permission_sound",
+                        (float) config.getDouble("statue_sound_volume", 0.2f),
+                        (float) config.getDouble("statue_sound_pitch", 1.0f));
+                event.setCancelled(true);
+                return;
+            }
+
             Location loc = living.getLocation();
             boolean denied = false;
+            boolean isClaimOwner = false;
 
             if (GriefPrevention.instance != null) {
                 Claim claim = GriefPrevention.instance.dataStore.getClaimAt(loc, false, null);
                 if (claim != null) {
-                    String denyReason = claim.allowBuild(player, loc.getBlock().getType());
-                    if (denyReason != null) denied = true;
+                    String denyReason = claim.allowContainers(player);
+                    if (denyReason != null) {
+                        denied = true;
+                    } else {
+                        if (player.getUniqueId().equals(claim.ownerID)) {
+                            isClaimOwner = true;
+                        }
+                    }
                 }
             }
 
             if (!denied && living instanceof Tameable tameable && tameable.isTamed()) {
                 AnimalTamer owner = tameable.getOwner();
-                if (owner == null || !owner.getUniqueId().equals(player.getUniqueId())) denied = true;
+                boolean isPetOwner = (owner != null && owner.getUniqueId().equals(player.getUniqueId()));
+
+                if (!isPetOwner && !isClaimOwner) denied = true;
             }
 
             if (denied) {
@@ -262,6 +295,23 @@ public class PlayerInteractEntityListener implements Listener {
         }
     }
 
+    // ---------- Helpers ----------
+
+    private boolean isHostileOrBoss(LivingEntity living) {
+        if (living instanceof Monster) return true;
+        EntityType t = living.getType();
+        return t == EntityType.SLIME
+                || t == EntityType.MAGMA_CUBE
+                || t == EntityType.WARDEN
+                || t == EntityType.WITHER
+                || t == EntityType.ENDER_DRAGON;
+    }
+
+    private boolean isNameTagged(LivingEntity living) {
+        // Name Tags set a custom name; system boss bars don't count.
+        return living.getCustomName() != null && !living.getCustomName().isEmpty();
+    }
+
     private void sendFeedback(Player player, FileConfiguration config, String messageKey, String particleKey, String soundKey, Location loc, float volume, float pitch) {
         String message = config.getString(messageKey, "");
         String particleName = config.getString(particleKey, "VILLAGER_HAPPY");
@@ -280,7 +330,9 @@ public class PlayerInteractEntityListener implements Listener {
     }
 
     private void sendDenyFeedback(Player player, FileConfiguration config, String messageKey, String soundKey, float volume, float pitch) {
-        String message = config.getString(messageKey, "You don't have permission!");
+        // UPDATED DEFAULT MESSAGE HERE
+        String message = config.getString(messageKey, "&cYou do not have permission to interact with this.");
+
         String soundName = config.getString(soundKey, "BLOCK_NOTE_BLOCK_BASS");
         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(ChatColor.translateAlternateColorCodes('&', message)));
         try {
