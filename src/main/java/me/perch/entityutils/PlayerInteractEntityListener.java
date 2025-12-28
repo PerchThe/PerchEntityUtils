@@ -1,6 +1,10 @@
 package me.perch.entityutils;
 
-import org.bukkit.ChatColor;
+import me.ryanhamshire.GriefPrevention.Claim;
+import me.ryanhamshire.GriefPrevention.GriefPrevention;
+import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.ChatMessageType;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -22,10 +26,9 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.TextComponent;
-import me.ryanhamshire.GriefPrevention.Claim;
-import me.ryanhamshire.GriefPrevention.GriefPrevention;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.util.Vector;
 
 import java.util.HashMap;
 import java.util.UUID;
@@ -76,9 +79,6 @@ public class PlayerInteractEntityListener implements Listener {
         Material silenceItem = Material.valueOf(config.getString("silence_item", "BELL"));
         Material statueItem = Material.valueOf(config.getString("statue_item", "ARMOR_STAND"));
 
-        // ---------------------------------------------------------------------
-        // AGE LOCK / UNLOCK
-        // ---------------------------------------------------------------------
         if (itemInHand.getType().equals(triggerItem)) {
             if (!(event.getRightClicked() instanceof Breedable breedable)) return;
             if (breedable.isAdult()) return;
@@ -90,7 +90,6 @@ public class PlayerInteractEntityListener implements Listener {
             if (GriefPrevention.instance != null) {
                 Claim claim = GriefPrevention.instance.dataStore.getClaimAt(loc, false, null);
                 if (claim != null) {
-                    // Check container trust for interactions
                     String denyReason = claim.allowBuild(player, itemInHand.getType());
                     if (denyReason != null) {
                         denyReason = claim.allowContainers(player);
@@ -100,15 +99,12 @@ public class PlayerInteractEntityListener implements Listener {
                     } else if (claim.ownerID != null && player.getUniqueId().equals(claim.ownerID)) {
                         isClaimOwner = true;
                     }
-
                 }
             }
 
             if (!denied && event.getRightClicked() instanceof Tameable tameable && tameable.isTamed()) {
                 AnimalTamer owner = tameable.getOwner();
                 boolean isPetOwner = (owner != null && owner.getUniqueId().equals(player.getUniqueId()));
-
-                // You must be Pet Owner OR Claim Owner
                 if (!isPetOwner && !isClaimOwner) denied = true;
             }
 
@@ -133,9 +129,6 @@ public class PlayerInteractEntityListener implements Listener {
             return;
         }
 
-        // ---------------------------------------------------------------------
-        // SILENCE / UNSILENCE
-        // ---------------------------------------------------------------------
         if (itemInHand.getType().equals(silenceItem)) {
             if (!(event.getRightClicked() instanceof LivingEntity livingEntity)) return;
 
@@ -160,7 +153,6 @@ public class PlayerInteractEntityListener implements Listener {
             if (!denied && livingEntity instanceof Tameable tameable && tameable.isTamed()) {
                 AnimalTamer owner = tameable.getOwner();
                 boolean isPetOwner = (owner != null && owner.getUniqueId().equals(player.getUniqueId()));
-
                 if (!isPetOwner && !isClaimOwner) denied = true;
             }
 
@@ -186,14 +178,10 @@ public class PlayerInteractEntityListener implements Listener {
             return;
         }
 
-        // ---------------------------------------------------------------------
-        // STATUE: FREEZE / UNFREEZE, OR SNEAK-ROTATE
-        // ---------------------------------------------------------------------
         if (itemInHand.getType().equals(statueItem)) {
             if (!(event.getRightClicked() instanceof LivingEntity living)) return;
             if (living instanceof Player || living.getType() == EntityType.ARMOR_STAND) return;
 
-            // Villagers remain disallowed (use your separate feature)
             if (living instanceof Villager) {
                 String msgKey = player.isSneaking() ? "villager_statue_sneak_message" : "statue_villager_message";
                 sendDenyFeedback(player, config, msgKey, "statue_permission_sound",
@@ -203,9 +191,7 @@ public class PlayerInteractEntityListener implements Listener {
                 return;
             }
 
-            // NEW: Hostiles & bosses require Name-Tag first
             if (isHostileOrBoss(living) && !isNameTagged(living)) {
-                // Default text matches your request (&c color)
                 sendDenyFeedback(player, config, "statue_need_nametag_message", "statue_permission_sound",
                         (float) config.getDouble("statue_sound_volume", 0.2f),
                         (float) config.getDouble("statue_sound_pitch", 1.0f));
@@ -234,7 +220,6 @@ public class PlayerInteractEntityListener implements Listener {
             if (!denied && living instanceof Tameable tameable && tameable.isTamed()) {
                 AnimalTamer owner = tameable.getOwner();
                 boolean isPetOwner = (owner != null && owner.getUniqueId().equals(player.getUniqueId()));
-
                 if (!isPetOwner && !isClaimOwner) denied = true;
             }
 
@@ -249,7 +234,6 @@ public class PlayerInteractEntityListener implements Listener {
             float volume = (float) config.getDouble("statue_sound_volume", 0.2f);
             float pitch = (float) config.getDouble("statue_sound_pitch", 1.0f);
 
-            // SNEAK = ROTATE
             if (player.isSneaking()) {
                 double inc = config.getDouble("statue_rotate_increment_degrees", 22.5d);
                 boolean onlyWhenFrozen = config.getBoolean("statue_rotate_only_when_frozen", false);
@@ -274,7 +258,6 @@ public class PlayerInteractEntityListener implements Listener {
                 return;
             }
 
-            // NORMAL CLICK = TOGGLE FREEZE
             boolean ai;
             try {
                 ai = living.hasAI();
@@ -283,19 +266,41 @@ public class PlayerInteractEntityListener implements Listener {
             }
 
             if (ai) {
-                living.setAI(false);
-                try { living.setGravity(false); } catch (Throwable ignored) {}
+                hardFreeze(living);
                 sendFeedback(player, config, "statue_message", "statue_particle", "statue_sound", loc, volume, pitch);
             } else {
-                living.setAI(true);
-                try { living.setGravity(true); } catch (Throwable ignored) {}
+                hardUnfreeze(living);
                 sendFeedback(player, config, "unstatue_message", "unstatue_particle", "unstatue_sound", loc, volume, pitch);
             }
             event.setCancelled(true);
         }
     }
 
-    // ---------- Helpers ----------
+    private void hardFreeze(LivingEntity e) {
+        Location lock = e.getLocation().clone();
+        lock.setX(lock.getBlockX() + 0.5);
+        lock.setZ(lock.getBlockZ() + 0.5);
+        e.teleport(lock);
+
+        e.setAI(false);
+        try { e.setGravity(false); } catch (Throwable ignored) {}
+        try { e.setCollidable(false); } catch (Throwable ignored) {}
+
+        e.setVelocity(new Vector(0, 0, 0));
+        try { e.setFallDistance(0f); } catch (Throwable ignored) {}
+
+        e.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 255, true, false, false));
+        e.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, Integer.MAX_VALUE, 128, true, false, false));
+    }
+
+    private void hardUnfreeze(LivingEntity e) {
+        e.setAI(true);
+        try { e.setGravity(true); } catch (Throwable ignored) {}
+        try { e.setCollidable(true); } catch (Throwable ignored) {}
+
+        e.removePotionEffect(PotionEffectType.SLOWNESS);
+        e.removePotionEffect(PotionEffectType.JUMP_BOOST);
+    }
 
     private boolean isHostileOrBoss(LivingEntity living) {
         if (living instanceof Monster) return true;
@@ -308,7 +313,6 @@ public class PlayerInteractEntityListener implements Listener {
     }
 
     private boolean isNameTagged(LivingEntity living) {
-        // Name Tags set a custom name; system boss bars don't count.
         return living.getCustomName() != null && !living.getCustomName().isEmpty();
     }
 
@@ -330,9 +334,7 @@ public class PlayerInteractEntityListener implements Listener {
     }
 
     private void sendDenyFeedback(Player player, FileConfiguration config, String messageKey, String soundKey, float volume, float pitch) {
-        // UPDATED DEFAULT MESSAGE HERE
         String message = config.getString(messageKey, "&cYou do not have permission to interact with this.");
-
         String soundName = config.getString(soundKey, "BLOCK_NOTE_BLOCK_BASS");
         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(ChatColor.translateAlternateColorCodes('&', message)));
         try {
