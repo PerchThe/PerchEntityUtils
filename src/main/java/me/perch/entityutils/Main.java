@@ -37,6 +37,7 @@ public final class Main extends JavaPlugin {
         this.saveDefaultConfig();
 
         getServer().getPluginManager().registerEvents(new PlayerInteractEntityListener(this), this);
+        getServer().getPluginManager().registerEvents(new UntameAnimalsListener(this), this);
         getCommand("runcommandall").setExecutor(new RunCommandAllCommand(this));
 
         reverseDropper = new ReverseDropperModule(this);
